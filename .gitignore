@@ -1,0 +1,28 @@
+# Secretos y entorno
+.env
+credentials.json
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/
+
+# Datos de trabajo (pueden contener datos personales)
+data/output/
+data/state/
+data/logs/
+data/input/*.xls
+data/input/*.xlsx
+!data/input/.gitkeep
+
+# Sistema
+.DS_Store

@@ -1,0 +1,25 @@
+services:
+  rastreador:
+    build: .
+    image: rfe-rastreador:0.1.0
+    container_name: rfe-rastreador
+    init: true
+    # UID del contenedor y GID del grupo del host. Así los archivos nuevos
+    # heredan el grupo correcto incluso en volúmenes que no respetan setgid.
+    user: "${RFE_UID:-10001}:${RFE_GID:-1000}"
+    # Si el contenedor falla, se reinicia y el checkpoint reanuda la corrida.
+    restart: on-failure:5
+    env_file:
+      - .env
+    environment:
+      RFE_DATA_DIR: /app/data
+      TZ: America/Mexico_City
+    volumes:
+      # Persistencia de entradas, salidas, checkpoints, logs y consentimiento.
+      - ./data:/app/data
+    # Ajusta la ruta del Excel y las banderas según tu corrida.
+    # El nombre del archivo se toma de RFE_INPUT_FILE (.env).
+    command:
+      - run
+      - --input
+      - /app/data/input/${RFE_INPUT_FILE:-entrada.xls}

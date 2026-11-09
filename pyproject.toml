@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rfe-rastreador"
+version = "0.1.0"
+description = "Procesa RFE en SASA/SIGA/SIGED y aplica reglas de negocio educativas."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.2,<4",
+    "openpyxl>=3.1,<4",
+    "xlrd>=2.0,<3",
+    "requests>=2.32,<3",
+    "beautifulsoup4>=4.12,<5",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9"]
+
+[project.scripts]
+rfe-rastreador = "rfe_rastreador.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
