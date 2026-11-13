@@ -7,8 +7,9 @@ services:
     # UID del contenedor y GID del grupo del host. Así los archivos nuevos
     # heredan el grupo correcto incluso en volúmenes que no respetan setgid.
     user: "${RFE_UID:-10001}:${RFE_GID:-1000}"
-    # Si el contenedor falla, se reinicia y el checkpoint reanuda la corrida.
-    restart: on-failure:5
+    # Si el contenedor falla, reintenta indefinidamente y el checkpoint
+    # reanuda la corrida. No se reinicia si termina con exito (exit 0).
+    restart: on-failure
     env_file:
       - .env
     environment:
@@ -23,3 +24,31 @@ services:
       - run
       - --input
       - /app/data/input/${RFE_INPUT_FILE:-entrada.xls}
+
+  streamlit:
+    build: .
+    image: rfe-rastreador:0.1.0
+    container_name: rfe-streamlit
+    init: true
+    # Reinicia el dashboard si falla.
+    restart: on-failure
+    # Mismo UID/GID que el rastreador para acceso consistente al volumen.
+    user: "${RFE_UID:-10001}:${RFE_GID:-1000}"
+    env_file:
+      - .env
+    environment:
+      RFE_DATA_DIR: /app/data
+      TZ: America/Mexico_City
+    volumes:
+      # Persistencia de entradas, salidas, checkpoints, logs y consentimiento.
+      - ./data:/app/data
+    ports:
+      - "8501:8501"
+    # Sobrescribe el entrypoint para lanzar Streamlit en lugar del pipeline.
+    entrypoint: ["streamlit"]
+    # Comandos para streamlit run.
+    command:
+      - run
+      - src/rfe_rastreador/ui/app.py
+      - --server.port=8501
+      - --server.headless=true

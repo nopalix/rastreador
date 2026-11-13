@@ -49,9 +49,7 @@ def platform_result_from_dict(datos: dict[str, Any]) -> PlatformResult:
     return PlatformResult(
         fuente=Fuente(datos["fuente"]),
         estado=EstadoConsulta(datos["estado"]),
-        registros=[
-            academic_record_from_dict(r) for r in datos.get("registros", [])
-        ],
+        registros=[academic_record_from_dict(r) for r in datos.get("registros", [])],
         error=datos.get("error"),
         consultado_en=consultado_en,
     )

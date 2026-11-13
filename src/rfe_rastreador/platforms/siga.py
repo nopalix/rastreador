@@ -53,6 +53,20 @@ _ANTIGUEDAD = re.compile(r"Antig[^<:]*:\s*([^<]+)", re.I)
 _ALIADOS = re.compile(r"Aliados:\s*(?:</strong>)?\s*(?:<[^>]+>)*\s*([^<]+)", re.I)
 
 
+_CURP = re.compile(r"CURP\s*:?\s*([A-Z0-9]{6,30})", re.I)
+
+
+def _extraer_curp(html: str) -> str:
+    """Extrae la CURP mostrada en el detalle de SIGA.
+
+    Se tolera que SIGA devuelva como CURP el propio RFE (dato mal
+    capturado); por eso se aceptan longitudes de 6 a 30 caracteres.
+    """
+    texto = _limpiar(html)
+    coincidencia = _CURP.search(texto)
+    return coincidencia.group(1).upper() if coincidencia else ""
+
+
 def _limpiar(valor: str | None) -> str:
     if not valor:
         return ""
@@ -203,7 +217,7 @@ class SigaClient(PlatformClient):
         return respuesta.text
 
     def _interpretar_detalle(
-        self, html: str, ciclo: str
+        self, html: str, ciclo: str, rfe: str | None = None
     ) -> AcademicRecord | None:
         nivel_raw = ""
         coincidencia_nivel = _NIVEL.search(html)
@@ -218,10 +232,17 @@ class SigaClient(PlatformClient):
         nivel = normalizar_nivel(nivel_raw)
         calificacion = parsear_calificacion(calificacion_raw)
 
+        curp = _extraer_curp(html)
+
         # Un detalle legítimo siempre trae la etiqueta "Nivel" (aunque sea
         # "Sin asignar") o una calificación. Si no hay ninguna, la respuesta
-        # no es la pantalla esperada.
-        if not coincidencia_nivel and calificacion is None:
+        # no es la pantalla esperada. Excepción: cuando SIGA devuelve como
+        # CURP el mismo RFE (captura incorrecta), se conserva el registro
+        # para que la regla de negocio lo clasifique como BASURA.
+        curp_igual_rfe = bool(
+            rfe and curp and curp.strip().upper() == rfe.strip().upper()
+        )
+        if not coincidencia_nivel and calificacion is None and not curp_igual_rfe:
             return None
 
         estatus = ""
@@ -247,6 +268,7 @@ class SigaClient(PlatformClient):
                 ("antiguedad", antiguedad),
                 ("aliados", aliados),
                 ("coordinacion_zona", _campo_tabla(html, "Coordinación Zona")),
+                ("curp", curp),
                 ("alta_por", _campo_tabla(html, "Alta por")),
                 ("fecha_alta", _campo_tabla(html, "Fecha de alta")),
             )
@@ -306,7 +328,7 @@ class SigaClient(PlatformClient):
                 if not token:
                     continue
                 html = self._detalle(token, ciclo)
-                registro = self._interpretar_detalle(html, ciclo)
+                registro = self._interpretar_detalle(html, ciclo, rfe)
                 if registro is not None:
                     registros.append(registro)
 

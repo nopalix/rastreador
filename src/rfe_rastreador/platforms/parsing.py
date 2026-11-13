@@ -44,9 +44,7 @@ ALIAS_SITUACION = (
     "ESTADO",
 )
 
-ALIAS_ACADEMICOS = frozenset(
-    ALIAS_NIVEL + ALIAS_CALIFICACION + ALIAS_SITUACION
-)
+ALIAS_ACADEMICOS = frozenset(ALIAS_NIVEL + ALIAS_CALIFICACION + ALIAS_SITUACION)
 
 _FRASES_NO_ENCONTRADO = (
     "NO SASA",
@@ -155,9 +153,7 @@ def extraer_tablas(html: str) -> list[dict[str, str]]:
 
         for posicion, fila in enumerate(filas[:3]):
             celdas = fila.find_all(["th", "td"], recursive=False)
-            textos = [
-                normalizar_etiqueta(c.get_text(" ", strip=True)) for c in celdas
-            ]
+            textos = [normalizar_etiqueta(c.get_text(" ", strip=True)) for c in celdas]
             posible_nivel = _indice_columna(textos, ALIAS_NIVEL)
             posible_calificacion = _indice_columna(textos, ALIAS_CALIFICACION)
             if posible_nivel is not None and posible_calificacion is not None:
@@ -263,3 +259,111 @@ def parece_login(html: str) -> bool:
         return True
     texto = normalizar_texto(html)
     return "INICIAR SESION" in texto and "CONTRASENA" in texto
+
+
+# ------------------------------------------------------------------
+# Extracción de datos de contacto
+# ------------------------------------------------------------------
+
+ALIAS_TELEFONO = frozenset({
+    "TELEFONO", "TEL", "TELEFONO CELULAR", "CELULAR", "MOVIL",
+    "NUMERO DE TELEFONO", "TELEFONO MOVIL", "TELEFONO CEL",
+})
+
+ALIAS_DIRECCION = frozenset({
+    "DIRECCION", "DOMICILIO", "DIRECCION DOMICILIO",
+    "CALLE", "DOMICILIO PARTICULAR", "DIRECCION PARTICULAR",
+})
+
+ALIAS_NOMBRE = frozenset({
+    "NOMBRE", "NOMBRE DEL PARTICIPANTE", "NOMBRE COMPLETO",
+    "NOMBRE Y APELLIDOS", "APELLIDO Y NOMBRE",
+})
+
+
+def extraer_contacto(html: str) -> dict[str, str]:
+    """Extrae teléfono, dirección y nombre del HTML de una plataforma.
+
+    Busca pares etiqueta/valor en <b>, <strong>, <th>/<td> y tablas.
+    Devuelve un diccionario con claves: telefono, direccion, nombre.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    contacto: dict[str, str] = {}
+
+    # Buscar en pares <b>etiqueta</b>: valor
+    for b_tag in soup.find_all("b"):
+        etiqueta = normalizar_etiqueta(b_tag.get_text(" ", strip=True))
+        if not etiqueta:
+            continue
+        valor = _texto_siguiente(b_tag)
+        if not valor:
+            continue
+        etiq_norm = normalizar_etiqueta(etiqueta)
+        if etiq_norm in ALIAS_TELEFONO and "telefono" not in contacto:
+            contacto["telefono"] = limpiar_valor(valor)
+        elif etiq_norm in ALIAS_DIRECCION and "direccion" not in contacto:
+            contacto["direccion"] = limpiar_valor(valor)
+        elif etiq_norm in ALIAS_NOMBRE and "nombre" not in contacto:
+            contacto["nombre"] = limpiar_valor(valor)
+
+    # Buscar en tablas <td>Etiqueta</td><td>Valor</td>
+    for fila in soup.find_all("tr"):
+        celdas = fila.find_all(["td", "th"], recursive=False)
+        for indice in range(len(celdas) - 1):
+            celda_actual = celdas[indice]
+            celda_siguiente = celdas[indice + 1]
+            if celda_actual.name == "th" or celda_siguiente.name == "th":
+                continue
+            etiqueta = normalizar_etiqueta(celda_actual.get_text(" ", strip=True))
+            if not etiqueta:
+                continue
+            etiq_norm = normalizar_etiqueta(etiqueta)
+            valor = limpiar_valor(celda_siguiente.get_text(" ", strip=True))
+            if not valor:
+                continue
+            if etiq_norm in ALIAS_TELEFONO and "telefono" not in contacto:
+                contacto["telefono"] = valor
+            elif etiq_norm in ALIAS_DIRECCION and "direccion" not in contacto:
+                contacto["direccion"] = valor
+            elif etiq_norm in ALIAS_NOMBRE and "nombre" not in contacto:
+                contacto["nombre"] = valor
+
+    return contacto
+
+
+def normalizar_telefono_mexico(telefono: str) -> str:
+    """Normaliza un teléfono mexicano al formato +52XXXXXXXXXX.
+
+    Elimina espacios, guiones, paréntesis y prefijos nacionales (044, 045, 01).
+    Si ya empieza con +52, lo devuelve igual.
+    """
+    if not telefono:
+        return ""
+
+    t = telefono.strip()
+    # Quitar todo lo que no sea dígito o +
+    t = "".join(c for c in t if c.isdigit() or c == "+")
+
+    # Si ya tiene +52, devolverlo limpio
+    if t.startswith("+52"):
+        return t
+
+    # Quitar código de país 52 si lo tiene sin +
+    if t.startswith("52") and len(t) > 10:
+        t = t[2:]
+
+    # Quitar prefijos nacionales mexicanos: 044, 045, 01
+    for prefijo in ("044", "045", "01"):
+        if t.startswith(prefijo):
+            t = t[len(prefijo):]
+            break
+
+    # Si tiene 10 dígitos, agregar +52
+    if len(t) == 10 and t.isdigit():
+        return f"+52{t}"
+
+    # Si tiene 11 dígitos y empieza con 1 (teléfono fijo con larga distancia nacional)
+    if len(t) == 11 and t.startswith("1") and t.isdigit():
+        return f"+52{t}"
+
+    return t

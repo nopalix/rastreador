@@ -33,9 +33,7 @@ def _parser() -> argparse.ArgumentParser:
             "con las reglas de Basura, Continuidad, No Acreditado y No Presentado."
         ),
     )
-    parser.add_argument(
-        "--version", action="version", version="rfe_rastreador 0.1.0"
-    )
+    parser.add_argument("--version", action="version", version="rfe_rastreador 0.1.0")
 
     sub = parser.add_subparsers(dest="comando")
 
@@ -119,9 +117,7 @@ def _parser() -> argparse.ArgumentParser:
 
     sub.add_parser("doctor", help="Diagnosticar configuración y dependencias.")
 
-    purge = sub.add_parser(
-        "purge", help="Eliminar salidas/checkpoints antiguos."
-    )
+    purge = sub.add_parser("purge", help="Eliminar salidas/checkpoints antiguos.")
     purge.add_argument(
         "--days",
         type=int,
@@ -226,8 +222,10 @@ def _cmd_consent(args: argparse.Namespace) -> int:
             return 1
 
     print(json.dumps(registro.como_dict(), ensure_ascii=False, indent=2))
-    print(f"Vigente para la versión {settings.privacy_version}: "
-          f"{'sí' if privacy.consent.is_valid() else 'no'}")
+    print(
+        f"Vigente para la versión {settings.privacy_version}: "
+        f"{'sí' if privacy.consent.is_valid() else 'no'}"
+    )
     return 0
 
 
@@ -280,9 +278,8 @@ def _cmd_doctor(_args: argparse.Namespace) -> int:
     else:
         siga_estado = "SIN CREDENCIALES"
     print(f"  SIGA : {siga_estado}")
-    siged_detalle = (
-        f"{settings.siged_format}, modo {settings.siged_mode}"
-        + (", requiere CURP" if settings.siged_format == "json" else "")
+    siged_detalle = f"{settings.siged_format}, modo {settings.siged_mode}" + (
+        ", requiere CURP" if settings.siged_format == "json" else ""
     )
     print(
         f"  SIGED: {'configurada' if settings.siged_url else 'SIN URL'} "
@@ -294,9 +291,7 @@ def _cmd_doctor(_args: argparse.Namespace) -> int:
     print("\nCredenciales (solo presencia):")
     for fuente, estado in credentials.describe().items():
         campos = [
-            nombre
-            for nombre in ("usuario", "password", "token")
-            if estado.get(nombre)
+            nombre for nombre in ("usuario", "password", "token") if estado.get(nombre)
         ]
         detalle = ", ".join(campos) if campos else "sin credenciales"
         print(f"  {fuente:<5}: {detalle}")
@@ -305,7 +300,9 @@ def _cmd_doctor(_args: argparse.Namespace) -> int:
 
     print("\nPrivacidad:")
     registro = privacy.consent.status()
-    print(f"  Consentimiento: {'vigente' if privacy.consent.is_valid() else 'pendiente'}")
+    print(
+        f"  Consentimiento: {'vigente' if privacy.consent.is_valid() else 'pendiente'}"
+    )
     if registro:
         print(f"  Versión: {registro.version} | Operador: {registro.operator}")
 
@@ -319,8 +316,7 @@ def _cmd_doctor(_args: argparse.Namespace) -> int:
 
     if faltantes:
         print(
-            "\nInstala las dependencias faltantes con: "
-            "pip install -r requirements.txt",
+            "\nInstala las dependencias faltantes con: pip install -r requirements.txt",
             file=sys.stderr,
         )
         return 1

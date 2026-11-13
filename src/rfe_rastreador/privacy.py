@@ -75,9 +75,7 @@ class ConsentRecord:
 class ConsentManager:
     """Lee y escribe el consentimiento en un archivo JSON local."""
 
-    def __init__(
-        self, ruta: Path, version: str, file_mode: int = 0o600
-    ) -> None:
+    def __init__(self, ruta: Path, version: str, file_mode: int = 0o600) -> None:
         self.ruta = Path(ruta)
         self.version = version
         self.file_mode = file_mode
@@ -109,11 +107,7 @@ class ConsentManager:
 
     def is_valid(self) -> bool:
         registro = self._leer()
-        return bool(
-            registro
-            and registro.accepted
-            and registro.version == self.version
-        )
+        return bool(registro and registro.accepted and registro.version == self.version)
 
     def grant(
         self,
@@ -123,9 +117,7 @@ class ConsentManager:
         registro = ConsentRecord(
             version=self.version,
             accepted=True,
-            accepted_at=datetime.now(timezone.utc).isoformat(
-                timespec="seconds"
-            ),
+            accepted_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
             operator=operator.strip() or "operador",
             scope=scope,
         )
@@ -136,9 +128,7 @@ class ConsentManager:
         registro = ConsentRecord(
             version=self.version,
             accepted=False,
-            accepted_at=datetime.now(timezone.utc).isoformat(
-                timespec="seconds"
-            ),
+            accepted_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
             operator=operator.strip() or "operador",
             scope="revocado",
         )

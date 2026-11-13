@@ -124,9 +124,7 @@ class WebSession:
         self._esperar_turno()
 
         partes = urlsplit(url)
-        self.log.debug(
-            "%s %s%s", method.upper(), partes.netloc, partes.path or "/"
-        )
+        self.log.debug("%s %s%s", method.upper(), partes.netloc, partes.path or "/")
         return self._session.request(method.upper(), url, **kwargs)
 
     def get(self, url: str, **kwargs: Any) -> requests.Response:

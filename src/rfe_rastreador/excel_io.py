@@ -11,14 +11,21 @@ import pandas as pd
 
 from .errors import ExcelError
 from .models import (
+    EstadoConsulta,
     Categoria,
     Evaluation,
     ExcelReadResult,
     Fuente,
     InputRecord,
 )
-from .normalization import es_rfe_valida, normalizar_rfe, normalizar_texto
+from .normalization import (
+    es_rfe_valida,
+    normalizar_rfe,
+    normalizar_texto,
+)
+from .platforms.parsing import normalizar_telefono_mexico
 from .privacy import PrivacyManager
+
 
 
 COLUMNA_RFE_INTERNA = "_RFE_NORMALIZADO"
@@ -43,9 +50,7 @@ _CATEGORIAS_SALIDA = (
 )
 
 
-def detectar_columna_rfe(
-    columnas: Iterable[Any], preferida: str | None = None
-) -> str:
+def detectar_columna_rfe(columnas: Iterable[Any], preferida: str | None = None) -> str:
     """Encuentra la columna RFE/CURP por nombre, con tolerancia a variantes."""
 
     columnas = list(columnas)
@@ -81,9 +86,7 @@ def detectar_columna_rfe(
     )
 
 
-def detectar_columna_zona(
-    columnas: Iterable[Any], preferida: str = "CVE ZONA"
-) -> str:
+def detectar_columna_zona(columnas: Iterable[Any], preferida: str = "CVE ZONA") -> str:
     """Encuentra la columna de zona por nombre exacto o normalizado."""
 
     columnas = list(columnas)
@@ -155,19 +158,13 @@ def leer_excel(
     invalidos_df = dataframe[~mascara_valida].copy()
 
     duplicados = int(validos[COLUMNA_RFE_INTERNA].duplicated().sum())
-    unicos = validos.drop_duplicates(
-        subset=COLUMNA_RFE_INTERNA, keep="first"
-    ).copy()
+    unicos = validos.drop_duplicates(subset=COLUMNA_RFE_INTERNA, keep="first").copy()
 
     registros = [
         InputRecord(
             rfe=str(fila[COLUMNA_RFE_INTERNA]),
             fila=int(indice) + 2,  # +2: encabezado y base 1 de Excel
-            datos={
-                str(k): v
-                for k, v in fila.items()
-                if str(k) != COLUMNA_RFE_INTERNA
-            },
+            datos={str(k): v for k, v in fila.items() if str(k) != COLUMNA_RFE_INTERNA},
         )
         for indice, fila in unicos.iterrows()
     ]
@@ -190,9 +187,7 @@ def leer_excel(
     )
 
 
-def _unir_valores(
-    evaluacion: Evaluation, fuente: Fuente, campo: str
-) -> str:
+def _unir_valores(evaluacion: Evaluation, fuente: Fuente, campo: str) -> str:
     resultado = evaluacion.resultados.get(fuente)
     if resultado is None:
         return ""
@@ -231,11 +226,7 @@ def construir_dataframe_salida(
         if evaluacion is None:
             continue
 
-        salida = {
-            str(k): v
-            for k, v in fila.items()
-            if str(k) != COLUMNA_RFE_INTERNA
-        }
+        salida = {str(k): v for k, v in fila.items() if str(k) != COLUMNA_RFE_INTERNA}
         salida.update(
             {
                 "Categoria": evaluacion.categoria.value,
@@ -251,16 +242,12 @@ def construir_dataframe_salida(
             salida[f"{fuente.value}_Estado"] = (
                 resultado.estado.value if resultado else ""
             )
-            salida[f"{fuente.value}_Nivel"] = _unir_valores(
-                evaluacion, fuente, "nivel"
-            )
+            salida[f"{fuente.value}_Nivel"] = _unir_valores(evaluacion, fuente, "nivel")
             salida[f"{fuente.value}_Calificacion"] = _unir_valores(
                 evaluacion, fuente, "calificacion"
             )
 
-        salida["Evidencia"] = json.dumps(
-            evaluacion.evidencia, ensure_ascii=False
-        )
+        salida["Evidencia"] = json.dumps(evaluacion.evidencia, ensure_ascii=False)
         filas.append(salida)
 
     return pd.DataFrame(filas)
@@ -306,9 +293,7 @@ def escribir_salidas(
         subconjunto = dataframe[dataframe["Categoria"] == categoria.value]
         if subconjunto.empty:
             continue
-        _escribir_seguro(
-            subconjunto, run_dir / f"{categoria.value}.xlsx", file_mode
-        )
+        _escribir_seguro(subconjunto, run_dir / f"{categoria.value}.xlsx", file_mode)
 
     _escribir_seguro(dataframe, run_dir / "TODOS.xlsx", file_mode)
 
@@ -352,3 +337,153 @@ def escribir_salidas(
         _escribir_seguro(invalidos_df, run_dir / "INVALIDOS.xlsx", file_mode)
 
     return run_dir
+
+
+# ------------------------------------------------------------------
+# Exportación de contactos para mensajería
+# ------------------------------------------------------------------
+
+
+def _extraer_datos_contacto(
+    evaluacion: Evaluation,
+) -> dict[str, str]:
+    """Extrae datos de contacto de una evaluación.
+
+    Prioridad: datos de la plataforma (SASA/SIGA) -> datos del Excel de entrada.
+    """
+    contacto = {
+        "RFE": evaluacion.rfe,
+        "Nombre": "",
+        "Telefono": "",
+        "Direccion": "",
+        "Nivel": "",
+        "Categoria": evaluacion.categoria.value,
+        "Motivo": evaluacion.motivo,
+        "Regla": evaluacion.regla_id,
+        "Zona": "",
+    }
+
+    # Datos de la plataforma (SASA y SIGA)
+    for fuente in (Fuente.SASA, Fuente.SIGA):
+        resultado = evaluacion.resultados.get(fuente)
+        if not resultado or resultado.estado is not EstadoConsulta.OK:
+            continue
+        for registro in resultado.registros:
+            if registro.nombre and not contacto["Nombre"]:
+                contacto["Nombre"] = registro.nombre
+            if registro.telefono and not contacto["Telefono"]:
+                contacto["Telefono"] = registro.telefono
+            if registro.direccion and not contacto["Direccion"]:
+                contacto["Direccion"] = registro.direccion
+            if registro.nivel_raw and not contacto["Nivel"]:
+                contacto["Nivel"] = registro.nivel_raw
+            break  # Tomar el primer registro con datos
+
+    return contacto
+
+
+def escribir_contactos(
+    evaluaciones: list[Evaluation],
+    lectura: ExcelReadResult,
+    output_dir: str | Path,
+    run_id: str,
+    categorias_objetivo: tuple[str, ...] = (
+        "NO_PRESENTADO",
+        "CONTINUIDAD",
+        "NO_ACREDITADO",
+    ),
+    pais_codigo: str = "+52",
+    file_mode: int = 0o600,
+) -> Path | None:
+    """Genera un Excel de contactos para mensajería (WhatsApp/SMS).
+
+    Solo incluye evaluaciones cuyas categorías estén en ``categorias_objetivo``.
+    Los teléfonos se normalizan al formato ``+52XXXXXXXXXX`` para México.
+    """
+    contactos = []
+
+    for evaluacion in evaluaciones:
+        if evaluacion.categoria.value not in categorias_objetivo:
+            continue
+
+        contacto = _extraer_datos_contacto(evaluacion)
+
+        # Completar con datos del Excel de entrada si faltan
+        registro_entrada = next(
+            (r for r in lectura.registros if r.rfe == evaluacion.rfe), None
+        )
+        if registro_entrada:
+            if not contacto["Nombre"]:
+                # Buscar columnas de nombre en el Excel
+                for clave, valor in registro_entrada.datos.items():
+                    clave_normalizada = str(clave).strip().upper()
+                    if clave_normalizada in (
+                        "NOMBRE",
+                        "NOMBRE DEL PARTICIPANTE",
+                        "NOMBRE COMPLETO",
+                    ):
+                        contacto["Nombre"] = str(valor).strip()
+                        break
+            if not contacto["Telefono"]:
+                for clave, valor in registro_entrada.datos.items():
+                    clave_normalizada = str(clave).strip().upper()
+                    if clave_normalizada in (
+                        "TELEFONO", "TEL", "CELULAR", "MOVIL",
+                        "NUMERO DE TELEFONO",
+                    ):
+                        contacto["Telefono"] = str(valor).strip()
+                        break
+            if not contacto["Direccion"]:
+                for clave, valor in registro_entrada.datos.items():
+                    clave_normalizada = str(clave).strip().upper()
+                    if clave_normalizada in (
+                        "DIRECCION", "DOMICILIO", "CALLE",
+                    ):
+                        contacto["Direccion"] = str(valor).strip()
+                        break
+            if not contacto["Zona"]:
+                for clave, valor in registro_entrada.datos.items():
+                    clave_normalizada = str(clave).strip().upper()
+                    if clave_normalizada in ("CVE ZONA", "ZONA"):
+                        contacto["Zona"] = str(valor).strip()
+                        break
+
+        # Normalizar teléfono a formato +52
+        if contacto["Telefono"]:
+            contacto["Telefono"] = normalizar_telefono_mexico(
+                contacto["Telefono"]
+            )
+
+        contactos.append(contacto)
+
+    if not contactos:
+        return None
+
+    dataframe = pd.DataFrame(contactos)
+    columnas = [
+        "RFE", "Nombre", "Telefono", "Direccion",
+        "Nivel", "Categoria", "Motivo", "Regla", "Zona",
+    ]
+    # Asegurar que todas las columnas existan
+    for col in columnas:
+        if col not in dataframe.columns:
+            dataframe[col] = ""
+    dataframe = dataframe[columnas]
+
+    # Crear directorio de contactos
+    contactos_dir = Path(output_dir) / "contactos"
+    contactos_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        contactos_dir.chmod(0o700)
+    except OSError:
+        pass
+
+    archivo = contactos_dir / f"CONTACTOS-{run_id}.xlsx"
+    _escribir_seguro(dataframe, archivo, file_mode)
+
+    return archivo
+
+
+# ------------------------------------------------------------------
+# Fin del módulo
+# ------------------------------------------------------------------

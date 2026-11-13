@@ -169,9 +169,7 @@ class CheckpointManager:
         if fcntl is None:
             return
 
-        self._lock_fd = os.open(
-            self.lock_path, os.O_CREAT | os.O_RDWR, self.file_mode
-        )
+        self._lock_fd = os.open(self.lock_path, os.O_CREAT | os.O_RDWR, self.file_mode)
         try:
             fcntl.flock(self._lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
@@ -290,9 +288,7 @@ class CheckpointManager:
         assert self._results_cache is not None
 
         clave = self.rfe_key(evaluacion.rfe)
-        datos = evaluation_to_dict(
-            evaluacion, incluir_rfe=self.store_raw_identifiers
-        )
+        datos = evaluation_to_dict(evaluacion, incluir_rfe=self.store_raw_identifiers)
         datos["rfe_key"] = clave
 
         self.results_path.parent.mkdir(parents=True, exist_ok=True)

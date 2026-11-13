@@ -142,6 +142,16 @@ class Settings:
     backoff_factor: float = 1.5
     delay_min: float = 1.0
     delay_max: float = 2.5
+    # --- Exportación de contactos ---
+    contact_export_enabled: bool = False
+    contact_export_dir: str = "data/contactos"
+    contact_export_categories: tuple[str, ...] = (
+        "NO_PRESENTADO",
+        "CONTINUIDAD",
+        "NO_ACREDITADO",
+    )
+    contact_export_country_code: str = "+52"
+
     record_delay_min: float = 0.0
     record_delay_max: float = 0.5
     user_agent: str = (
@@ -207,9 +217,7 @@ class Settings:
             output_dir=output_dir,
             state_dir=state_dir,
             logs_dir=logs_dir,
-            sasa_url=_env(
-                "SASA_URL", "http://168.255.120.98/quickSASA/BuscarRFE"
-            ),
+            sasa_url=_env("SASA_URL", "http://168.255.120.98/quickSASA/BuscarRFE"),
             sasa_estado=_env("SASA_ESTADO", "gto"),
             sasa_method=_env("SASA_METHOD", "POST").upper(),
             siga_url=_env("SIGA_URL"),
@@ -230,24 +238,27 @@ class Settings:
             delay_max=_env_float("DELAY_MAX", 2.5),
             record_delay_min=_env_float("RECORD_DELAY_MIN", 0.0),
             record_delay_max=_env_float("RECORD_DELAY_MAX", 0.5),
+            contact_export_enabled=_env_bool("CONTACT_EXPORT_ENABLED", False),
+            contact_export_dir=_env("CONTACT_EXPORT_DIR", "data/contactos"),
+            contact_export_categories=_env_list(
+                "CONTACT_EXPORT_CATEGORIES",
+                ("NO_PRESENTADO", "CONTINUIDAD", "NO_ACREDITADO"),
+            ),
+            contact_export_country_code=_env(
+                "CONTACT_EXPORT_COUNTRY_CODE", "+52"
+            ),
             user_agent=_env(
                 "HTTP_USER_AGENT",
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                 "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             ),
             privacy_version=_env("PRIVACY_VERSION", "1.0"),
-            consent_file=_ruta(
-                _env("CONSENT_FILE"), state_dir / "consentimiento.json"
-            ),
+            consent_file=_ruta(_env("CONSENT_FILE"), state_dir / "consentimiento.json"),
             privacy_salt_file=_ruta(
                 _env("PRIVACY_SALT_FILE"), state_dir / ".privacy_salt"
             ),
-            checkpoint_hash_identifiers=_env_bool(
-                "CHECKPOINT_HASH_IDENTIFIERS", True
-            ),
-            checkpoint_store_raw_identifiers=_env_bool(
-                "CHECKPOINT_STORE_RAW", False
-            ),
+            checkpoint_hash_identifiers=_env_bool("CHECKPOINT_HASH_IDENTIFIERS", True),
+            checkpoint_store_raw_identifiers=_env_bool("CHECKPOINT_STORE_RAW", False),
             retention_days=_env_int("RETENTION_DAYS", 90),
             credentials_file=credentials_file,
             dir_mode=_env_mode("RFE_DIR_MODE", 0o700),

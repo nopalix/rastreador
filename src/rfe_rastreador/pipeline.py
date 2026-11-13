@@ -11,7 +11,7 @@ from typing import Callable
 from .checkpoint import CheckpointManager, contar_categorias
 from .config import Settings
 from .credentials import CredentialsProvider
-from .excel_io import escribir_salidas, leer_excel
+from .excel_io import escribir_contactos, escribir_salidas, leer_excel
 from .http_session import SessionManager
 from .models import (
     Categoria,
@@ -74,9 +74,7 @@ class Pipeline:
             )
         return cliente.consultar(rfe)
 
-    def _procesar_registro(
-        self, rfe: str, curp: str | None = None
-    ) -> Evaluation:
+    def _procesar_registro(self, rfe: str, curp: str | None = None) -> Evaluation:
         resultados: dict[Fuente, PlatformResult] = {}
 
         for fuente in (Fuente.SASA, Fuente.SIGA):
@@ -87,11 +85,7 @@ class Pipeline:
         if self._debe_consultar_siged(evaluacion):
             cliente_siged = self.clients.get(Fuente.SIGED)
             clave_siged = curp or (rfe if es_curp(rfe) else "")
-            if (
-                cliente_siged is not None
-                and cliente_siged.configurado
-                and clave_siged
-            ):
+            if cliente_siged is not None and cliente_siged.configurado and clave_siged:
                 resultados[Fuente.SIGED] = cliente_siged.consultar(clave_siged)
                 evaluacion = evaluar_registro(rfe, resultados)
 
@@ -111,8 +105,7 @@ class Pipeline:
         """Segundo intento único para errores transitorios de la corrida."""
 
         por_clave = {
-            self.privacy.rfe_key(registro.rfe): registro
-            for registro in registros
+            self.privacy.rfe_key(registro.rfe): registro for registro in registros
         }
         pendientes = [
             por_clave[clave]
@@ -128,15 +121,11 @@ class Pipeline:
         )
         for indice, registro in enumerate(pendientes, start=1):
             curp = extraer_curp(registro.datos, registro.rfe)
-            evaluacion = self._procesar_registro(
-                registro.rfe, curp=curp or None
-            )
+            evaluacion = self._procesar_registro(registro.rfe, curp=curp or None)
             checkpoint.mark(evaluacion)
 
             if indice == len(pendientes) or indice % 10 == 0:
-                self.log.info(
-                    "Reintento ERROR: %s/%s", indice, len(pendientes)
-                )
+                self.log.info("Reintento ERROR: %s/%s", indice, len(pendientes))
             if indice < len(pendientes):
                 self._pausa_entre_registros()
 
@@ -151,8 +140,7 @@ class Pipeline:
         """Recupera el RFE real desde la fila de entrada usando su clave HMAC."""
 
         rfe_por_clave = {
-            self.privacy.rfe_key(registro.rfe): registro.rfe
-            for registro in registros
+            self.privacy.rfe_key(registro.rfe): registro.rfe for registro in registros
         }
         por_clave: dict[str, Evaluation] = {}
         for clave, evaluacion in pares:
@@ -194,9 +182,7 @@ class Pipeline:
         zonas_efectivas = tuple(
             sorted(
                 str(zona).strip()
-                for zona in (
-                    zonas if zonas is not None else self.settings.zonas
-                )
+                for zona in (zonas if zonas is not None else self.settings.zonas)
                 if str(zona).strip()
             )
         )
@@ -246,9 +232,7 @@ class Pipeline:
             dir_mode=self.settings.dir_mode,
             file_mode=self.settings.file_mode,
             run_suffix=(
-                f"zonas-{'-'.join(zonas_efectivas)}"
-                if zonas_efectivas
-                else ""
+                f"zonas-{'-'.join(zonas_efectivas)}" if zonas_efectivas else ""
             ),
         )
 
@@ -262,8 +246,7 @@ class Pipeline:
             completados = {
                 clave
                 for clave, datos in previos.items()
-                if str(datos.get("categoria", "")).upper()
-                != Categoria.ERROR.value
+                if str(datos.get("categoria", "")).upper() != Categoria.ERROR.value
             }
             pendientes = [
                 registro
@@ -284,9 +267,7 @@ class Pipeline:
             total_pendientes = len(pendientes)
             for indice, registro in enumerate(pendientes, start=1):
                 curp = extraer_curp(registro.datos, registro.rfe)
-                evaluacion = self._procesar_registro(
-                    registro.rfe, curp=curp or None
-                )
+                evaluacion = self._procesar_registro(registro.rfe, curp=curp or None)
                 checkpoint.mark(evaluacion)
 
                 if progress_callback:
@@ -306,9 +287,7 @@ class Pipeline:
                 self._reintentar_errores(checkpoint, lectura.registros)
 
             pares = checkpoint.load_evaluations_con_clave()
-            evaluaciones = self._mapear_evaluaciones(
-                pares, lectura.registros
-            )
+            evaluaciones = self._mapear_evaluaciones(pares, lectura.registros)
             run_dir = escribir_salidas(
                 evaluaciones,
                 lectura,
@@ -318,6 +297,34 @@ class Pipeline:
                 dir_mode=self.settings.dir_mode,
                 file_mode=self.settings.file_mode,
             )
+
+            # Exportar contactos para mensajería si está habilitado
+            if self.settings.contact_export_enabled:
+                try:
+                    archivo_contactos = escribir_contactos(
+                        evaluaciones,
+                        lectura,
+                        self.settings.output_dir,
+                        checkpoint.run_id,
+                        categorias_objetivo=tuple(
+                            self.settings.contact_export_categories
+                        ),
+                        pais_codigo=self.settings.contact_export_country_code,
+                        file_mode=self.settings.file_mode,
+                    )
+                    if archivo_contactos:
+                        self.log.info(
+                            "Contactos exportados a: %s",
+                            archivo_contactos,
+                        )
+                    else:
+                        self.log.info(
+                            "No se generaron contactos (ninguna categoría objetivo encontrada)."
+                        )
+                except Exception as exc:  # no interrumpir la corrida por esto
+                    self.log.exception(
+                        "Error al exportar contactos: %s", exc
+                    )
 
         categorias = contar_categorias(evaluaciones)
         self.log.info(

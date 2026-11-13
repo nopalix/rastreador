@@ -100,9 +100,7 @@ def parsear_calificacion(valor: Any) -> float | None:
 
     texto = normalizar_texto(valor).replace(",", ".")
     # Algunos reportes agregan sufijos como "6.0/10" o "6 DE 10".
-    coincidencia = re.fullmatch(
-        r"(\d+(?:\.\d+)?)\s*(?:/\s*10|DE\s*10)?", texto
-    )
+    coincidencia = re.fullmatch(r"(\d+(?:\.\d+)?)\s*(?:/\s*10|DE\s*10)?", texto)
     if not coincidencia:
         return None
 

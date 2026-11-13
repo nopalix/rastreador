@@ -33,9 +33,7 @@ class ClienteFalso:
         self.claves.append(rfe)
         return self.resultados_por_rfe.get(
             rfe,
-            PlatformResult(
-                fuente=self.fuente, estado=EstadoConsulta.NO_ENCONTRADO
-            ),
+            PlatformResult(fuente=self.fuente, estado=EstadoConsulta.NO_ENCONTRADO),
         )
 
 
@@ -124,9 +122,7 @@ def test_pipeline_clasifica_y_reanuda(tmp_path):
         },
     )
 
-    resultado = pipeline.run(
-        ruta, accept_privacy=True, operator="test", resume=True
-    )
+    resultado = pipeline.run(ruta, accept_privacy=True, operator="test", resume=True)
 
     assert resultado.categorias == {
         "BASURA": 1,
@@ -143,9 +139,7 @@ def test_pipeline_clasifica_y_reanuda(tmp_path):
     assert (resultado.output_dir / "BASURA.xlsx").exists()
 
     # Segunda corrida: no debe volver a consultar ni perder resultados.
-    resultado2 = pipeline.run(
-        ruta, accept_privacy=True, operator="test", resume=True
-    )
+    resultado2 = pipeline.run(ruta, accept_privacy=True, operator="test", resume=True)
     assert resultado2.procesados == 4
     assert resultado2.reanudados == 4
     assert cliente_sasa.llamadas == 4
@@ -300,4 +294,3 @@ def test_pipeline_reintenta_error_transitorio_en_corrida_posterior(tmp_path):
 
     assert segundo.categorias == {"REVISION_MANUAL": 1}
     assert cliente_sasa.llamadas == 3
-

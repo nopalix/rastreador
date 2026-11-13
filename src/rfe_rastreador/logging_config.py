@@ -11,7 +11,9 @@ from .config import Settings
 
 
 _PATRONES_SECRETOS = (
-    re.compile(r"(?i)(password|passwd|contrasena|contraseña|token|secret)\s*[=:]\s*\S+"),
+    re.compile(
+        r"(?i)(password|passwd|contrasena|contraseña|token|secret)\s*[=:]\s*\S+"
+    ),
     re.compile(r"(?i)(authorization:\s*bearer\s+)\S+"),
 )
 

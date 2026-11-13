@@ -87,10 +87,7 @@ def _desde_json(datos: dict[str, Any], fuente: Fuente) -> PlatformCredentials:
         return PlatformCredentials()
 
     usuario = (
-        bloque.get("usuario")
-        or bloque.get("user")
-        or bloque.get("username")
-        or None
+        bloque.get("usuario") or bloque.get("user") or bloque.get("username") or None
     )
     password = (
         bloque.get("password")
@@ -171,14 +168,15 @@ class CredentialsProvider:
             import logging
 
             logging.getLogger("rfe_rastreador.credentials").warning(
-                "El archivo de credenciales %s tiene permisos %o; "
-                "se recomienda 600.",
+                "El archivo de credenciales %s tiene permisos %o; se recomienda 600.",
                 ruta,
                 modo,
             )
 
     def get(self, fuente: Fuente) -> PlatformCredentials:
-        desde_json = _desde_json(self._json, fuente) if self._json else PlatformCredentials()
+        desde_json = (
+            _desde_json(self._json, fuente) if self._json else PlatformCredentials()
+        )
         prefijo = _PREFIJOS[fuente]
         desde_env = PlatformCredentials(
             usuario=_primer_env(prefijo, _ALIAS_USUARIO),

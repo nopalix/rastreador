@@ -367,3 +367,62 @@ def test_es_curp_y_extraccion_desde_la_fila():
     assert extraer_curp({"RFE": "AAGJ7703195R4", "otro": curp}) == curp
     assert extraer_curp({"RFE": curp}) == curp
     assert extraer_curp({"RFE": "AAGJ7703195R4"}) == ""
+
+
+# ---------------------------------------------------------------------------
+# Regla 1: BASURA cuando la CURP de SIGA es idéntica al RFE
+# ---------------------------------------------------------------------------
+def _registro_siga_con_curp(
+    curp: str,
+    nivel: NivelAcademico = NivelAcademico.DESCONOCIDO,
+    calificacion: float | None = None,
+) -> AcademicRecord:
+    return AcademicRecord(
+        fuente=Fuente.SIGA,
+        nivel=nivel,
+        calificacion=calificacion,
+        nivel_raw=nivel.value if nivel is not NivelAcademico.DESCONOCIDO else "",
+        calificacion_raw="" if calificacion is None else str(calificacion),
+        detalles={"curp": curp},
+    )
+
+
+def test_basura_cuando_curp_es_igual_al_rfe():
+    rfe = "AAGJ7703195R4"
+    evaluacion = evaluar_registro(
+        rfe,
+        {Fuente.SIGA: resultado(Fuente.SIGA, _registro_siga_con_curp(rfe))},
+    )
+    assert evaluacion.categoria is Categoria.BASURA
+    assert evaluacion.regla_id == "R1_BASURA_CURP_IGUAL_RFE"
+
+
+def test_basura_cuando_curp_es_igual_al_rfe_sin_calificacion():
+    rfe = "AAGJ7703195R4"
+    registro_siga = _registro_siga_con_curp(
+        rfe, nivel=NivelAcademico.SECUNDARIA, calificacion=None
+    )
+    evaluacion = evaluar_registro(
+        rfe, {Fuente.SIGA: resultado(Fuente.SIGA, registro_siga)}
+    )
+    assert evaluacion.categoria is Categoria.BASURA
+    assert evaluacion.regla_id == "R1_BASURA_CURP_IGUAL_RFE"
+
+
+def test_basura_curp_igual_rfe_es_case_insensitive():
+    rfe = "AAGJ7703195R4"
+    evaluacion = evaluar_registro(
+        rfe,
+        {Fuente.SIGA: resultado(Fuente.SIGA, _registro_siga_con_curp(rfe.lower()))},
+    )
+    assert evaluacion.categoria is Categoria.BASURA
+    assert evaluacion.regla_id == "R1_BASURA_CURP_IGUAL_RFE"
+
+
+def test_curp_distinta_no_activa_regla_curp():
+    rfe = "AAGJ7703195R4"
+    registro_siga = _registro_siga_con_curp("ABCD010203HDFXXX01")
+    evaluacion = evaluar_registro(
+        rfe, {Fuente.SIGA: resultado(Fuente.SIGA, registro_siga)}
+    )
+    assert evaluacion.categoria is not Categoria.BASURA

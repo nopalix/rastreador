@@ -56,28 +56,51 @@ def _todos_los_registros(
 
 def _buscar_basura(
     resultados: dict[Fuente, PlatformResult],
-) -> AcademicRecord | None:
-    """Regla 1: concluidos con nota aprobatoria en el nivel terminal.
+    rfe: str | None = None,
+) -> tuple[AcademicRecord | None, str | None]:
+    """Regla 1: basura (excluir).
 
-    En SASA cuentan tanto ``AVANZADO`` como ``SECUNDARIA``; en SIGA solo
-    ``SECUNDARIA``.
+    Se consideran dos casos:
+
+    1. Nivel terminal aprobado: SASA ``AVANZADO``/``SECUNDARIA`` o SIGA
+       ``SECUNDARIA``, con calificación aprobatoria.
+    2. En SIGA la CURP mostrada es idéntica al RFE consultado. Esto indica
+       que los datos del participante no se capturaron correctamente y SIGA
+       devolvió el propio RFE como CURP; estos registros normalmente no
+       tienen calificación, por lo que este caso se evalúa sin importar el
+       nivel ni la calificación.
+
+    Returns:
+        Tuple de (registro_basura, regla_id).
+        - ``(None, "R1_BASURA_CURP_IGUAL_RFE")``: CURP idéntica al RFE.
+        - ``(registro, None)``: basura por nivel terminal aprobado.
+        - ``(None, None)``: no aplica la regla.
     """
 
+    rfe_norm = (rfe or "").strip().upper()
+
+    # Caso 2: CURP == RFE en SIGA (captura incorrecta). No exige nivel ni nota.
+    if rfe_norm:
+        for registro in _registros_de(resultados, Fuente.SIGA):
+            curp = str(registro.detalles.get("curp", "") or "").strip().upper()
+            if curp and curp == rfe_norm:
+                return None, "R1_BASURA_CURP_IGUAL_RFE"
+
+    # Caso 1a: basura por nivel terminal aprobado en SASA.
     for registro in _registros_de(resultados, Fuente.SASA):
-        if (
-            registro.nivel in NIVELES_SASA_BASURA
-            and es_aprobatoria(registro.calificacion, NOTA_APROBATORIA)
+        if registro.nivel in NIVELES_SASA_BASURA and es_aprobatoria(
+            registro.calificacion, NOTA_APROBATORIA
         ):
-            return registro
+            return registro, None
 
+    # Caso 1b: basura por Secundaria aprobada en SIGA.
     for registro in _registros_de(resultados, Fuente.SIGA):
-        if (
-            registro.nivel is NivelAcademico.SECUNDARIA
-            and es_aprobatoria(registro.calificacion, NOTA_APROBATORIA)
+        if registro.nivel is NivelAcademico.SECUNDARIA and es_aprobatoria(
+            registro.calificacion, NOTA_APROBATORIA
         ):
-            return registro
+            return registro, None
 
-    return None
+    return None, None
 
 
 def _buscar_continuidad(
@@ -227,7 +250,22 @@ def evaluar_registro(
     """Aplica las reglas en orden estricto y devuelve la clasificación."""
 
     # Regla 1: Basura (excluir)
-    basura = _buscar_basura(resultados)
+    basura, regla_basura = _buscar_basura(resultados, rfe=rfe)
+    
+    # Caso especial: CURP en SIGA es idéntica al RFE → BASURA por CURP simulada
+    if regla_basura == "R1_BASURA_CURP_IGUAL_RFE":
+        return Evaluation(
+            rfe=rfe,
+            categoria=Categoria.BASURA,
+            regla_id="R1_BASURA_CURP_IGUAL_RFE",
+            motivo=(
+                "La CURP registrada en SIGA es idéntica al RFE consultado; "
+                "los datos del participante no se capturaron correctamente."
+            ),
+            evidencia=_construir_evidencia(resultados),
+            resultados=resultados,
+        )
+    
     if basura is not None:
         return Evaluation(
             rfe=rfe,

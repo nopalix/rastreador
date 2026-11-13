@@ -66,3 +66,14 @@ def test_extraer_registros_siga_multinivel():
 def test_detectar_no_encontrado():
     assert parece_no_encontrado("<html>NO SASA</html>")
     assert not parece_no_encontrado(HTML_SASA)
+
+
+def test_extraer_curp_desde_etiqueta():
+    from rfe_rastreador.platforms.siga import _extraer_curp
+
+    assert _extraer_curp("<b>CURP:</b> AAGJ7703195R4") == "AAGJ7703195R4"
+    assert (
+        _extraer_curp("<td>CURP</td><td>ABCD010203HDFXXX01</td>")
+        == "ABCD010203HDFXXX01"
+    )
+    assert _extraer_curp("<div>Sin CURP</div>") == ""

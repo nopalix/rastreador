@@ -80,9 +80,7 @@ HTML_SIGA_DETALLE = """
 </body></html>
 """
 
-HTML_SIGA_DETALLE_SIN_NOTA = HTML_SIGA_DETALLE.replace(
-    "<h1>7.0</h1>", "<h1></h1>"
-)
+HTML_SIGA_DETALLE_SIN_NOTA = HTML_SIGA_DETALLE.replace("<h1>7.0</h1>", "<h1></h1>")
 
 HTML_SIGA_DETALLE_SIN_NIVEL = """
 <html><body>
@@ -207,18 +205,31 @@ class CredencialesFijas:
     """Proveedor mínimo para pruebas, sin depender de variables de entorno."""
 
     def __init__(self, usuario: str = "prueba", password: str = "secreto"):
-        self._credenciales = PlatformCredentials(
-            usuario=usuario, password=password
-        )
+        self._credenciales = PlatformCredentials(usuario=usuario, password=password)
 
     def get(self, _fuente):
         return self._credenciales
 
     def describe(self):
         return {
-            "SASA": {"usuario": False, "password": False, "token": False, "completo": False},
-            "SIGA": {"usuario": True, "password": True, "token": False, "completo": True},
-            "SIGED": {"usuario": False, "password": False, "token": False, "completo": False},
+            "SASA": {
+                "usuario": False,
+                "password": False,
+                "token": False,
+                "completo": False,
+            },
+            "SIGA": {
+                "usuario": True,
+                "password": True,
+                "token": False,
+                "completo": True,
+            },
+            "SIGED": {
+                "usuario": False,
+                "password": False,
+                "token": False,
+                "completo": False,
+            },
         }
 
 
@@ -226,9 +237,7 @@ def _rutas_siga(servidor, detalle: str = HTML_SIGA_DETALLE) -> None:
     servidor.rutas[("/siga/Account/Login", "GET")] = (200, HTML_SIGA_LOGIN)
     servidor.rutas[("/siga/Account/Login", "POST")] = (200, "<html>ok</html>")
     servidor.rutas["/siga/Actividad/Participantes"] = (200, HTML_SIGA_BUSQUEDA)
-    servidor.rutas[
-        "/siga/Actividad/Participantes/Seleccionar/abc123"
-    ] = (200, detalle)
+    servidor.rutas["/siga/Actividad/Participantes/Seleccionar/abc123"] = (200, detalle)
 
 
 def test_sasa_post_envia_edo_y_find(servidor):
@@ -260,9 +269,7 @@ def test_siga_login_busqueda_y_detalle(servidor):
     settings = _settings(servidor.base, siga_ciclos=("2017",))
     sesiones = _sesiones(settings)
     try:
-        cliente = SigaClient(
-            settings, sesiones.get("siga"), CredencialesFijas()
-        )
+        cliente = SigaClient(settings, sesiones.get("siga"), CredencialesFijas())
         resultado = cliente.consultar("AAGJ7703195R4")
     finally:
         sesiones.close_all()
@@ -298,9 +305,7 @@ def test_siga_detalle_sin_nota_conserva_nivel(servidor):
     settings = _settings(servidor.base, siga_ciclos=("2017",))
     sesiones = _sesiones(settings)
     try:
-        cliente = SigaClient(
-            settings, sesiones.get("siga"), CredencialesFijas()
-        )
+        cliente = SigaClient(settings, sesiones.get("siga"), CredencialesFijas())
         resultado = cliente.consultar("AAGJ7703195R4")
     finally:
         sesiones.close_all()
@@ -317,9 +322,7 @@ def test_siga_detalle_sin_nivel_ni_nota_conserva_registro(servidor):
     settings = _settings(servidor.base, siga_ciclos=("2017",))
     sesiones = _sesiones(settings)
     try:
-        cliente = SigaClient(
-            settings, sesiones.get("siga"), CredencialesFijas()
-        )
+        cliente = SigaClient(settings, sesiones.get("siga"), CredencialesFijas())
         resultado = cliente.consultar("AAGJ7703195R4")
     finally:
         sesiones.close_all()
@@ -340,9 +343,7 @@ def test_siga_sin_coincidencia_es_no_encontrado(servidor):
     settings = _settings(servidor.base, siga_ciclos=("2017",))
     sesiones = _sesiones(settings)
     try:
-        cliente = SigaClient(
-            settings, sesiones.get("siga"), CredencialesFijas()
-        )
+        cliente = SigaClient(settings, sesiones.get("siga"), CredencialesFijas())
         resultado = cliente.consultar("AAGJ7703195R4")
     finally:
         sesiones.close_all()
@@ -365,9 +366,10 @@ def test_siged_sin_registro(servidor):
 
 def test_siged_json_consulta_por_curp(servidor):
     curp = "AETJ051221HGTSPRA8"
-    servidor.rutas[
-        f"/siged/alumno/schoolCyclesByStudent/curp={curp}"
-    ] = (200, JSON_SIGED)
+    servidor.rutas[f"/siged/alumno/schoolCyclesByStudent/curp={curp}"] = (
+        200,
+        JSON_SIGED,
+    )
 
     settings = _settings(servidor.base, siged_format="json")
     sesiones = _sesiones(settings)
@@ -392,9 +394,7 @@ def test_siged_json_consulta_por_curp(servidor):
 
 def test_siged_json_sin_alumnos(servidor):
     curp = "AETJ051221HGTSPRA8"
-    servidor.rutas[
-        f"/siged/alumno/schoolCyclesByStudent/curp={curp}"
-    ] = (200, "{}")
+    servidor.rutas[f"/siged/alumno/schoolCyclesByStudent/curp={curp}"] = (200, "{}")
 
     settings = _settings(servidor.base, siged_format="json")
     sesiones = _sesiones(settings)
@@ -419,9 +419,7 @@ def test_login_rechazado_se_reporta_sin_excepcion(servidor):
         sasa = SasaClient(settings, sesiones.get("sasa"))
         login_sasa = sasa.consultar("AAGJ7703195R4")
 
-        siga = SigaClient(
-            settings, sesiones.get("siga"), CredencialesFijas()
-        )
+        siga = SigaClient(settings, sesiones.get("siga"), CredencialesFijas())
         login_siga = siga.consultar("AAGJ7703195R4")
     finally:
         sesiones.close_all()
@@ -440,9 +438,7 @@ def test_siga_404_en_busqueda_es_no_encontrado(servidor):
     settings = _settings(servidor.base, siga_ciclos=("2017",))
     sesiones = _sesiones(settings)
     try:
-        siga = SigaClient(
-            settings, sesiones.get("siga"), CredencialesFijas()
-        )
+        siga = SigaClient(settings, sesiones.get("siga"), CredencialesFijas())
         resultado = siga.consultar("AAGJ7703195R4")
     finally:
         sesiones.close_all()

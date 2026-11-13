@@ -63,7 +63,7 @@ class Categoria(str, Enum):
 
 @dataclass
 class AcademicRecord:
-    """Un registro académico puntual (nivel + calificación)."""
+    """Un registro académico puntual (nivel + calificación y contacto)."""
 
     fuente: Fuente
     nivel: NivelAcademico
@@ -71,6 +71,9 @@ class AcademicRecord:
     nivel_raw: str = ""
     calificacion_raw: str = ""
     detalles: dict[str, Any] = field(default_factory=dict)
+    telefono: str = ""
+    direccion: str = ""
+    nombre: str = ""
 
     def como_dict(self) -> dict[str, Any]:
         return {
@@ -80,6 +83,9 @@ class AcademicRecord:
             "nivel_raw": self.nivel_raw,
             "calificacion_raw": self.calificacion_raw,
             "detalles": dict(self.detalles),
+            "telefono": self.telefono,
+            "direccion": self.direccion,
+            "nombre": self.nombre,
         }
 
 
@@ -91,9 +97,7 @@ class PlatformResult:
     estado: EstadoConsulta
     registros: list[AcademicRecord] = field(default_factory=list)
     error: str | None = None
-    consultado_en: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    consultado_en: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
     def tiene_datos(self) -> bool:

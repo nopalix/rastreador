@@ -150,9 +150,7 @@ def test_construir_dataframe_y_escribir(tmp_path):
     assert dataframe.iloc[0]["SASA_Calificacion"] == "5"
     assert COLUMNA_RFE_INTERNA not in dataframe.columns
 
-    salida = escribir_salidas(
-        [evaluacion], lectura, tmp_path / "salida", "run-test"
-    )
+    salida = escribir_salidas([evaluacion], lectura, tmp_path / "salida", "run-test")
     assert (salida / "NO_ACREDITADO.xlsx").exists()
     assert (salida / "TODOS.xlsx").exists()
     assert (salida / "RESUMEN.xlsx").exists()
